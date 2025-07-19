@@ -30,3 +30,9 @@ GET /urls/{code}
 response
 302 found
 Location: "https://example.com/very/long/path?with=params"
+
+
+### NOTE
+
+create lambda function: 
+awslocal lambda create-function --function-name url-shortener --runtime provided.al2023 --zip-file fileb://function.zip --handler bootstrap --role arn:aws:iam::000000000000:role/lambda-role
