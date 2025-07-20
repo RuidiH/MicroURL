@@ -14,4 +14,10 @@ variable "aws_region" {
 
 variable "endpoint_url" {
   type = string
+  default = ""
 } 
+
+variable "url_table_name" {
+  type = string
+  default = "url_table"
+}
