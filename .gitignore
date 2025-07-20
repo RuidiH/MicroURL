@@ -1,1 +1,16 @@
+# lambda zips
 **.zip
+
+# terraform files
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+*.tfvars.json
+.terraform.tfstate.lock.info
+
+# environment variables
+.env
+
+# localstack runtime state
+/volume/
