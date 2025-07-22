@@ -1,4 +1,4 @@
-output table_name {
-    description = "dynamodb table name"    
-    value = ""
+output "table_arn" {
+  description = "dynamodb table arn"
+  value       = aws_dynamodb_table.this.arn
 }

@@ -4,10 +4,12 @@
 # terraform files
 *.tfstate
 *.tfstate.*
-.terraform/
-*.tfvars
+**/.terraform*
+**/*.tfvars
+**/*.tfvars.local
 *.tfvars.json
-.terraform.tfstate.lock.info
+**/.terraform.lock.hcl
+*.conf
 
 # environment variables
 .env

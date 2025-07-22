@@ -1,6 +1,6 @@
 module "url_table" {
   source = "./modules/dynamodb"
-  # name = var.url_table_name
+  name   = var.url_table_name
 }
 
 resource "aws_iam_role" "lambda_exec" {
@@ -20,22 +20,22 @@ resource "aws_iam_role" "lambda_exec" {
 }
 
 resource "aws_iam_role_policy_attachment" "logs" {
-    role = aws_iam_role.lambda_exec.name
-    policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 module "create_micro" {
   source   = "./modules/lambda"
   name     = "create-micro-url"
-  filename = "${path.module}/../../src/create_url/bin/create.zip"
+  filename = "${path.module}/../src/create_url/bin/create.zip"
   handler  = "create_micro"
   role_arn = aws_iam_role.lambda_exec.arn
 
   environment_variables = {
-    TABLE_NAME = module.url_table.name
+    TABLE_NAME = var.url_table_name
   }
 }
 
-module "lookup_micro" {
-  source = "./modules/lambda"
-}
+# module "lookup_micro" {
+#   source = "./modules/lambda"
+# }
