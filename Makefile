@@ -1,6 +1,6 @@
-.PHONY: local prod clean
+.PHONY: run-local run-prod clean del-local del-prod
 
-local:
+run-local:
 	@make clean
 	@cd terraform && \
 		terraform init \
@@ -13,7 +13,7 @@ local:
 		-var-file=terraform.tfvars.local \
 		-auto-approve
 
-prod:
+run-prod:
 	@make clean
 	@cd terraform && \
 	terraform init \
@@ -27,3 +27,26 @@ prod:
 
 clean:
 	@cd terraform && rm -rf .terraform .terraform.lock.hcl
+
+del-local:
+	@make clean
+	@cd terraform && terraform init \
+	-backend-config=envs/local/backend.conf \
+	-reconfigure && \
+	terraform workspace select local && \
+	terraform destroy \
+	-var-file=terraform.tfvars.local
+	-auto-approve && \
+	terraform workspace select default && \
+	terraform workspace delete local
+
+del-prod:
+	@make clean
+	@cd terraform && terraform init \
+	-backend-config=envs/prod/backend.conf \
+	-reconfigure && \
+	terraform workspace select prod && \
+	terraform destroy \
+	-auto-approve && \
+	terraform workspace select default && \
+	terraform workspace delete prod 
