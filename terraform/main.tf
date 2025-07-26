@@ -33,6 +33,7 @@ module "create_micro" {
 
   environment_variables = {
     TABLE_NAME = var.url_table_name
+    AWS_REGION = var.aws_region
   }
 }
 
