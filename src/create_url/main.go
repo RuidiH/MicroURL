@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"math/big"
+	"crypto/rand"
+	"errors"
+	"fmt"
 	"os"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -17,6 +18,7 @@ import (
 var (
 	ddbClient *dynamodb.Client
 	tableName string
+	baseURL   string
 )
 
 func init() {
@@ -25,6 +27,12 @@ func init() {
 	if tableName == "" {
 		panic("TABLE_NAME must be set")
 	}
+
+	baseURL = os.Getenv("BASE_URL")
+	if baseURL == "" {
+		baseURL = "https://short.example.com"
+	}
+
 	ctx := context.Background()
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(os.Getenv("AWS_REGION")))
 	if err != nil {
@@ -40,30 +48,56 @@ func init() {
 	ddbClient = dynamodb.NewFromConfig(cfg, opts...)
 }
 
-const base62Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+const (
+	base62Alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	codeLength     = 7
+)
 
-func base62Encode(b []byte) string {
-	num := new(big.Int).SetBytes(b)
-	zero := big.NewInt(0)
-	base := big.NewInt(62)
-
-	var chars []byte // remainders
-	for num.Cmp(zero) > 0 {
-		rem := new(big.Int)
-		num.DivMod(num, base, rem)
-		chars = append(chars, base62Alphabet[rem.Int64()])
+func randBase62(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
 	}
-
-	// if hash is all zeros
-	if len(chars) == 0 {
-		return "0"
+	n = len(base62Alphabet)
+	for i := range b {
+		b[i] = base62Alphabet[int(b[i])%n]
 	}
+	return string(b), nil
+}
 
-	// swap chars values
-	for i, j := 0, len(chars)-1; i < j; i, j = i+1, j-1 {
-		chars[i], chars[j] = chars[j], chars[i]
+// generateCode tries to insert until no collision
+func generateCode(ctx context.Context, longURL string) (string, error) {
+	for {
+		code, err := randBase62(codeLength)
+		if err != nil {
+			return "", fmt.Errorf("randBase62: %w", err)
+		}
+
+		// attempt a conditional write
+		input := &dynamodb.PutItemInput{
+			TableName: aws.String(tableName),
+			Item: map[string]types.AttributeValue{
+				"HashCode": &types.AttributeValueMemberS{Value: code},
+				"LongURL":  &types.AttributeValueMemberS{Value: longURL},
+				// "createdAt": &types.AttributeValueMemberS{
+				//     Value: time.Now().UTC().Format(time.RFC3339),
+				// },
+			},
+			ConditionExpression: aws.String("attribute_not_exists(HashCode)"),
+		}
+		_, err = ddbClient.PutItem(ctx, input)
+		if err == nil {
+			// success
+			return code, nil
+		}
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(err, &ccfe) {
+			// collision: loop and try again
+			continue
+		}
+		// any other error: give up
+		return "", fmt.Errorf("ddb PutItem: %w", err)
 	}
-	return string(chars)
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -72,32 +106,17 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: `{"error":"url param missing"}`}, nil
 	}
 
-	hash := sha256.Sum256([]byte(longURL))
-	code := base62Encode(hash[:5])
-	short := "https://short.ly/" + code
-	body := `{"code":"` + code + `","short_url":"` + short + `"}`
-
-	item := map[string]types.AttributeValue{
-		"HashCode":     &types.AttributeValueMemberS{Value: code},
-		"LongURL": &types.AttributeValueMemberS{Value: longURL},
-	}
-
-	_, err := ddbClient.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(tableName),
-		Item:      item,
-	})
+	code, err := generateCode(ctx, longURL)
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: `{"error":"write_failed"}`}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: `{"error":"could not generate code"}`}, nil
 	}
 
+	shortURL := fmt.Sprintf("%s/%s", baseURL, code)
+	respBody := fmt.Sprintf(`{"code":"%s","short_url":"%s"}`, code, shortURL)
 	return events.APIGatewayProxyResponse{
 		StatusCode: 201,
-		Headers: map[string]string{
-			"Content-Type":                "application/json",
-			"Location":                    short,
-			"Access-Control-Allow-Origin": "*",
-		},
-		Body: body,
+		Headers:    map[string]string{"Content-Type": "application/json"},
+		Body:       respBody,
 	}, nil
 }
 

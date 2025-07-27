@@ -21,3 +21,8 @@ variable "url_table_name" {
   type    = string
   default = "url_table"
 }
+
+variable "base_url" {
+  type    = string
+  default = "example.com"
+}

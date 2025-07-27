@@ -1,1 +1,1 @@
-{"statusCode":201,"headers":{"Access-Control-Allow-Origin":"*","Content-Type":"application/json","Location":"https://short.ly/IEFAr1C"},"multiValueHeaders":null,"body":"{\"code\":\"IEFAr1C\",\"short_url\":\"https://short.ly/IEFAr1C\"}"}
+{"statusCode":201,"headers":{"Content-Type":"application/json"},"multiValueHeaders":null,"body":"{\"code\":\"HQhD87I\",\"short_url\":\"example.com/HQhD87I\"}"}
