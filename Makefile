@@ -1,19 +1,20 @@
 .PHONY: run-local run-prod clean del-local del-prod build-lambdas build-create build-lookup
 
 build-create:
-	@mkdir -p src/create_url/bin
-	@cd src/create_url && go mod tidy && \
+	@mkdir -p src/create/bin
+	@cd src/create && go mod tidy && \
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/bootstrap main.go && \
-	rm -f bin/create.zip && \
-	cd bin && zip -j create.zip bootstrap
+	rm -f bin/*.zip && \
+	cd bin && zip -j function.zip bootstrap
 
 build-lookup:
-	@mkdir -p src/lookup_redirect/bin
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o src/lookup_redirect/bin/bootstrap src/lookup_redirect/main.go
-	cd src/lookup_redirect/bin && zip -j lookup.zip bootstrap
+	@mkdir -p src/redirect/bin
+	@cd src/redirect && go mod tidy && \
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o bin/bootstrap main.go && \
+	rm -f bin/*.zip && \
+	cd bin && zip -j function.zip bootstrap
 
-build-lambdas: build-create
-# build-lambdas: build-create build-lookup
+build-lambdas: build-create build-lookup
 
 clean:
 	@cd terraform && rm -rf .terraform .terraform.lock.hcl

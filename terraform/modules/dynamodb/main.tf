@@ -4,20 +4,19 @@ resource "aws_dynamodb_table" "this" {
   # read_capacity = 10
   # write_capacity = 5
 
-  hash_key = "HashCode"
   attribute {
-    name = "HashCode"
+    name = var.code_keyname
     type = "S"
   }
 
   attribute {
-    name = "LongURL"
+    name = var.url_keyname
     type = "S"
   }
 
   global_secondary_index {
-    name            = "LongURLIndex"
-    hash_key        = "LongURL"
+    name            = var.gsi_keyname
+    hash_key        = var.url_keyname
     projection_type = "ALL"
   }
 
@@ -27,6 +26,6 @@ resource "aws_dynamodb_table" "this" {
   }
 
   tags = {
-    Name = "URLTable"
+    Name = var.name
   }
 }

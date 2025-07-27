@@ -19,10 +19,58 @@ variable "endpoint_url" {
 
 variable "url_table_name" {
   type    = string
-  default = "url_table"
+  default = "ddb_url_table"
 }
 
 variable "base_url" {
   type    = string
   default = "example.com"
+}
+
+// lambda function variables
+
+variable "create_func_folder" {
+  type = string
+  default = "create"
+}
+variable "redirect_func_folder" {
+  type = string
+  default = "redirect"
+}
+
+variable "create_func_name" {
+  type = string
+  default = "create-func"
+}
+variable "redirect_func_name" {
+  type = string
+  default = "redirect-func"
+}
+
+// dynamodb variables
+
+variable "ddb_code_keyname" {
+  type = string
+  default = "HashCode"
+}
+
+variable "ddb_url_keyname" {
+  type = string
+  default = "LongURL"
+}
+
+variable "ddb_gsi_keyname" {
+  type = string
+  default = "LongURLIndex"
+}
+
+// api gateway variables
+variable "api_gateway_name" {
+  type = string
+  default = "api_gateway"
+}
+
+variable "stage_name" {
+  type = string
+  default = "local"
 }

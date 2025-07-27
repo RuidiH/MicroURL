@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -16,36 +17,59 @@ import (
 )
 
 var (
-	ddbClient *dynamodb.Client
-	tableName string
-	baseURL   string
+	ddbClient   *dynamodb.Client
+	tableName   string
+	baseURL     string
+	codeKeyName string
+	urlKeyName  string
 )
 
 func init() {
+	log.Println("init: starting Lambda setup")
 	// injected by terraform
 	tableName = os.Getenv("TABLE_NAME")
 	if tableName == "" {
-		panic("TABLE_NAME must be set")
+		log.Fatalf("init error: TABLE_NAME env not found")
 	}
+	log.Printf("init: using DynamoDB table %q", tableName)
 
 	baseURL = os.Getenv("BASE_URL")
 	if baseURL == "" {
+		log.Printf("init warning: BASE_URL not set, defaulting to short.example.com")
 		baseURL = "https://short.example.com"
+	} else {
+		log.Printf("init: using BASE_URL %q", baseURL)
 	}
+
+	codeKeyName = os.Getenv("CODE_KEYNAME")
+	if codeKeyName == "" {
+		log.Fatalf("init error: CODE_KEYNAME env not found")
+	}
+	log.Printf("init: using code key name %q", codeKeyName)
+
+	urlKeyName = os.Getenv("URL_KEYNAME")
+	if urlKeyName == "" {
+		log.Fatalf("init error: URL_KEYNAME env not found")
+	}
+	log.Printf("init: using URL key name %q", urlKeyName)
 
 	ctx := context.Background()
-	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(os.Getenv("AWS_REGION")))
+	awsRegion := os.Getenv("AWS_REGION")
+	log.Printf("init: loading AWS SDK config (region=%q)", awsRegion)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(awsRegion))
 	if err != nil {
-		panic("unable to load SDK config: " + err.Error())
+		log.Fatalf("init error: unable to load AWS SDK config: %v", err)
 	}
 
-	opts := []func(*dynamodb.Options){}
+	var opts []func(*dynamodb.Options)
 	if ep := os.Getenv("DDB_ENDPOINT"); ep != "" {
+		log.Printf("init: overriding DynamoDB endpoint to %q", ep)
 		opts = append(opts, func(o *dynamodb.Options) {
 			o.BaseEndpoint = aws.String(ep)
 		})
 	}
 	ddbClient = dynamodb.NewFromConfig(cfg, opts...)
+	log.Println("init: DynamoDB client configured")
 }
 
 const (
@@ -56,63 +80,71 @@ const (
 func randBase62(n int) (string, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
+		log.Printf("randBase62 error: %v", err)
 		return "", err
 	}
-	n = len(base62Alphabet)
+	alphabetLen := len(base62Alphabet)
 	for i := range b {
-		b[i] = base62Alphabet[int(b[i])%n]
+		b[i] = base62Alphabet[int(b[i])%alphabetLen]
 	}
 	return string(b), nil
 }
 
 // generateCode tries to insert until no collision
 func generateCode(ctx context.Context, longURL string) (string, error) {
+	attempt := 0
 	for {
+		attempt++
 		code, err := randBase62(codeLength)
 		if err != nil {
+			log.Printf("generateCode: attempt %d: randBase62 error: %v", attempt, err)
 			return "", fmt.Errorf("randBase62: %w", err)
 		}
+		log.Printf("generateCode: attempt %d: trying code %q", attempt, code)
 
-		// attempt a conditional write
 		input := &dynamodb.PutItemInput{
 			TableName: aws.String(tableName),
 			Item: map[string]types.AttributeValue{
-				"HashCode": &types.AttributeValueMemberS{Value: code},
-				"LongURL":  &types.AttributeValueMemberS{Value: longURL},
-				// "createdAt": &types.AttributeValueMemberS{
-				//     Value: time.Now().UTC().Format(time.RFC3339),
-				// },
+				codeKeyName: &types.AttributeValueMemberS{Value: code},
+				urlKeyName:  &types.AttributeValueMemberS{Value: longURL},
 			},
-			ConditionExpression: aws.String("attribute_not_exists(HashCode)"),
+			ConditionExpression: aws.String("attribute_not_exists(" + codeKeyName + ")"),
 		}
 		_, err = ddbClient.PutItem(ctx, input)
 		if err == nil {
-			// success
+			log.Printf("generateCode: success on attempt %d with code %q", attempt, code)
 			return code, nil
 		}
 		var ccfe *types.ConditionalCheckFailedException
 		if errors.As(err, &ccfe) {
-			// collision: loop and try again
+			log.Printf("generateCode: collision on code %q, retrying", code)
 			continue
 		}
-		// any other error: give up
+		log.Printf("generateCode: unexpected PutItem error: %v", err)
 		return "", fmt.Errorf("ddb PutItem: %w", err)
 	}
 }
 
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	log.Printf("handler: received request %+v", request)
+
 	longURL := request.QueryStringParameters["url"]
+	log.Printf("handler: long_url param = %q", longURL)
 	if longURL == "" {
+		log.Printf("handler error: url param missing")
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: `{"error":"url param missing"}`}, nil
 	}
 
 	code, err := generateCode(ctx, longURL)
 	if err != nil {
+		log.Printf("handler error: code generation failed: %v", err)
 		return events.APIGatewayProxyResponse{StatusCode: 500, Body: `{"error":"could not generate code"}`}, nil
 	}
 
 	shortURL := fmt.Sprintf("%s/%s", baseURL, code)
 	respBody := fmt.Sprintf(`{"code":"%s","short_url":"%s"}`, code, shortURL)
+	log.Printf("handler: generated short_url %q for long_url %q", shortURL, longURL)
+
 	return events.APIGatewayProxyResponse{
 		StatusCode: 201,
 		Headers:    map[string]string{"Content-Type": "application/json"},
@@ -121,5 +153,6 @@ func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events
 }
 
 func main() {
+	log.Println("main: starting Lambda create_url")
 	lambda.Start(handler)
 }
