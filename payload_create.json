@@ -1,1 +1,5 @@
-{ "queryStringParameters": { "url": "https://www.youtube.com/watch?v=nim-dnf5olc&list=RDnim-dnf5olc&start_radio=1" } }
+{
+  "body": {
+    "url": "https://www.youtube.com/watch?v=nim-dnf5olc&list=RDnim-dnf5olc&start_radio=1"
+  }
+}

@@ -4,6 +4,9 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
+	"fmt"
+	"net/http"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -58,6 +61,31 @@ func init() {
 	}
 	ddbClient = dynamodb.NewFromConfig(cfg, opts...)
 	log.Println("init: DynamoDB client configured for lookup_redirect")
+
+	// wait for Lambda runtime at port 9001
+
+    runtimeAPI := os.Getenv("AWS_LAMBDA_RUNTIME_API")
+    if runtimeAPI == "" {
+        // Not running under custom runtime (e.g. in AWS), so nothing to do
+        return
+    }
+
+    client := &http.Client{Timeout: 5 * time.Second}
+    // Try up to 5 times, 1s apart
+    for i := 0; i < 5; i++ {
+        resp, err := client.Get("http://" + runtimeAPI + "/2018-06-01/runtime/invocation/next")
+        if err == nil {
+            // API is up—close and return
+            resp.Body.Close()
+            fmt.Println("✅ Runtime API is ready")
+            return
+        }
+        fmt.Printf("⏳ Runtime API not ready (%d/5): %v\n", i+1, err)
+        time.Sleep(1 * time.Second)
+    }
+
+    // If you reach here, it really isn’t coming up—let Rapid handle the failure
+    fmt.Println("⚠️ Runtime API never came up—continuing and will likely timeout")
 }
 
 func handler(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {

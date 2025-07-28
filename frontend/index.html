@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MicroURL Shortener</title>
+  <style>
+    body { font-family: sans-serif; max-width: 400px; margin: 2em auto; }
+    input, button { padding: 0.5em; width: 100%; margin-bottom: 1em; }
+    #result { word-break: break-all; }
+  </style>
+</head>
+<body>
+  <h1>MicroURL</h1>
+  <form id="shortenForm">
+    <input type="url" id="urlInput" placeholder="Enter a long URL" required />
+    <button type="submit">Shorten</button>
+  </form>
+  <div id="result"></div>
+
+  <script>
+    const form = document.getElementById('shortenForm');
+    const input = document.getElementById('urlInput');
+    const result = document.getElementById('result');
+
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      result.textContent = '…working…';
+      try {
+        const resp = await fetch('http://localhost:4566/restapis/oarmxa5epu/local/_user_request_/urls', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Host': 'micro.url' },
+          body: JSON.stringify({ url: input.value })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          result.innerHTML = `🔗 <a href="${data.short_url}" target="_blank">${data.short_url}</a>`;
+        } else {
+          result.textContent = `Error: ${data.error}`;
+        }
+      } catch (err) {
+        result.textContent = 'Network error';
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>

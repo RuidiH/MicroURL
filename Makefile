@@ -23,8 +23,8 @@ run-local: clean build-lambdas
 	@cd terraform && \
 		terraform init \
 		-backend-config=envs/local/backend.conf \
-		-reconfigure
-	@terraform workspace select local 2>/dev/null || \
+		-reconfigure && \
+	terraform workspace select local 2>/dev/null || \
 		terraform workspace new local
 	@cd terraform && \
 	terraform apply \

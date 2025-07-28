@@ -1,1 +1,1 @@
-{"statusCode":201,"headers":{"Content-Type":"application/json"},"multiValueHeaders":null,"body":"{\"code\":\"081cuQY\",\"short_url\":\"example.com/081cuQY\"}"}
+{"errorMessage":"json: cannot unmarshal object into Go struct field APIGatewayProxyRequest.body of type string","errorType":"UnmarshalTypeError"}
