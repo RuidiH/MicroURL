@@ -12,6 +12,7 @@ provider "aws" {
       apigateway = endpoints.value
       s3         = endpoints.value
       sts        = endpoints.value
+      route53    = endpoints.value
     }
   }
 }

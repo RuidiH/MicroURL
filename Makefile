@@ -42,13 +42,13 @@ run-prod: clean build-lambdas
 	terraform apply \
 		-auto-approve
 
-del-local: clean
+del-local:
 	@cd terraform && terraform init \
 	-backend-config=envs/local/backend.conf \
 	-reconfigure && \
-	terraform workspace select local && \
+	terraform workspace select -or-create local && \
 	terraform destroy \
-	-var-file=terraform.tfvars.local
+	-var-file=terraform.tfvars.local \
 	-auto-approve && \
 	terraform workspace select default && \
 	terraform workspace delete local

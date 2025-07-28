@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -77,6 +78,10 @@ const (
 	codeLength     = 7
 )
 
+var payload struct {
+	LongURL string `json:"url"`
+}
+
 func randBase62(n int) (string, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
@@ -128,7 +133,11 @@ func generateCode(ctx context.Context, longURL string) (string, error) {
 func handler(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	log.Printf("handler: received request %+v", request)
 
-	longURL := request.QueryStringParameters["url"]
+	if err := json.Unmarshal([]byte(request.Body), &payload); err != nil || payload.LongURL == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: `{"error":"url required"}`}, nil
+	}
+
+	longURL := payload.LongURL
 	log.Printf("handler: long_url param = %q", longURL)
 	if longURL == "" {
 		log.Printf("handler error: url param missing")

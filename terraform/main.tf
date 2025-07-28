@@ -37,7 +37,7 @@ module "create_micro" {
   environment_variables = {
     TABLE_NAME = var.url_table_name
     AWS_REGION = var.aws_region
-    BASE_URL = var.base_url
+    BASE_URL = var.record_name
     CODE_KEYNAME = var.ddb_code_keyname
     URL_KEYNAME = var.ddb_url_keyname
     GSI_KEYNAME = var.ddb_gsi_keyname
@@ -54,7 +54,7 @@ module "redirect_micro" {
   environment_variables = {
     TABLE_NAME = var.url_table_name
     AWS_REGION = var.aws_region
-    BASE_URL = var.base_url
+    BASE_URL = var.record_name
     CODE_KEYNAME = var.ddb_code_keyname
     URL_KEYNAME = var.ddb_url_keyname
     GSI_KEYNAME = var.ddb_gsi_keyname
@@ -67,4 +67,14 @@ module "api_gateway" {
   stage_name = var.stage_name
   create_lambda_arn = module.create_micro.function_arn
   redirect_lambda_arn = module.redirect_micro.function_arn
+  domain_name = var.record_name
+  certificate_arn = var.certificate_arn
+}
+
+module "local_dns" {
+  source = "./modules/route53"
+  zone_name = var.zone_name
+  record_name = var.record_name
+  regional_domain_name = module.api_gateway.regional_domain_name
+  regional_zone_id = module.api_gateway.regional_zone_id
 }

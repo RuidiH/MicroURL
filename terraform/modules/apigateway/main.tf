@@ -91,3 +91,18 @@ resource "aws_api_gateway_stage" "this" {
   deployment_id  = aws_api_gateway_deployment.this.id
   stage_name     = var.stage_name
 }
+
+resource "aws_api_gateway_domain_name" "custom" {
+  domain_name = var.domain_name
+  regional_certificate_arn = var.certificate_arn
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
+  security_policy = "TLS_1_2"
+}
+
+resource "aws_api_gateway_base_path_mapping" "default" {
+  api_id = aws_api_gateway_rest_api.this.id
+  domain_name = aws_api_gateway_domain_name.custom.domain_name
+  stage_name  = var.stage_name  
+}

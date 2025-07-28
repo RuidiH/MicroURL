@@ -22,11 +22,6 @@ variable "url_table_name" {
   default = "ddb_url_table"
 }
 
-variable "base_url" {
-  type    = string
-  default = "example.com"
-}
-
 // lambda function variables
 
 variable "create_func_folder" {
@@ -73,4 +68,20 @@ variable "api_gateway_name" {
 variable "stage_name" {
   type = string
   default = "local"
+}
+
+# Route 53 
+
+variable "zone_name" {
+  type = string
+  default = "micro.url"
+}
+
+variable "record_name" {
+  type = string
+  default = "micro.url"
+}
+
+variable "certificate_arn" {
+  type = string
 }
